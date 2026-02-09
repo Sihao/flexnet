@@ -1,0 +1,103 @@
+# -------- system --------
+system:
+  experiment_dir:
+    server: "/rds/general/user/dy723/home/_flex_layer_runs_output"
+    local: "__local__"
+  cifar10_dir:
+    server: "data/cifar-10" # Defaulting to relative for now, can be updated
+    local: "data/cifar-10"
+  imagenet_dir:
+    server: "/rds/general/user/dy723/home/_data/ImageNet100"
+    local: "data/imagenet100"
+
+# -------- meta --------
+network:
+  values: [VGG]
+  depends_on: null
+
+vgg_variant:
+  values: ["16"]
+  depends_on: { network: [VGG] }
+
+resnet_depth:
+    values: [50]
+    depends_on: { network: [FlexResNet] }
+
+fully_flex:
+  values: [false]
+  depends_on: { network: [VGG, FlexResNet], use_flex: true }
+
+learning_rate:
+  values: [0.0001]
+  depends_on: null
+
+dropout:
+  values: [0.5]
+  depends_on: { network: [VGG] }
+
+weight_decay:
+  values: [0.0001]
+  depends_on: null
+
+label_smoothing:
+  values: [0.1]
+  depends_on: null
+
+batch_size:
+  values: [32]
+  depends_on: null
+
+validate_every_n_batch:
+  values: [100]
+  depends_on: null
+
+dataset:
+  values: [imagenet100]
+  depends_on: null
+
+optimizer:
+  values: [ADAMW]
+  depends_on: null
+
+scheduler:
+  values: [CosineAnnealingLR]
+  depends_on: null
+
+use_ffcv:
+  values: [false]
+  depends_on: { dataset: [imagenet100] }
+
+# -------- vgg --------
+use_flex:
+  values: [true]
+  depends_on: { network: [VGG, FlexResNet] }
+
+# -------- flex --------
+joint_mechanism:
+  values: [CHANNELWISE_MAXPOOL]
+  depends_on: { use_flex: true }
+
+logits_mechanism:
+  values: [THRESHOLD]
+  depends_on: { use_flex: true, joint_mechanism: false }
+
+masking_mechanism:
+  values: [SIGMOID_HARD]
+  depends_on: { use_flex: true, joint_mechanism: false }
+
+sigmoid_mul_factor:
+  values: [1]
+  depends_on: { masking_mechanism: SIGMOID_MUL }
+
+logits_use_batchnorm:
+  values: [false]
+  depends_on: { use_flex: true, joint_mechanism: false }
+
+num_spatial_attention_block:
+  values: [1]
+  depends_on: { logits_mechanism: SpatialAttentionBlock }
+
+# -------- simple conv --------
+custom_activation:
+  values: [SharpScaledSigmoid]
+  depends_on: { network: SimpleConvNet }

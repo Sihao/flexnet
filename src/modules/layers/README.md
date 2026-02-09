@@ -1,0 +1,2 @@
+# Layer Folder
+The `layer` folder is dedicated to housing layer level structures. Each structure inside this folder is constructed as a `torch.nn.Module`, which means you can expect every layer to have an implemented `forward` method. This makes integration and usage of these layers straightforward I hope, especially if you're already familiar with PyTorch's way of creating custom layers or models.
