@@ -26,3 +26,5 @@ _manual_sync_wandb.py
 *.log
 *.pdf
 results/dump/
+.chainlink/
+.claude/
