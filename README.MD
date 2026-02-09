@@ -17,6 +17,39 @@ Object recognition requires balancing selectivity and invariance, a feat achieve
 pip install -r requirements.txt
 ```
 
+## Experiments
+
+This repository includes pre-trained weights for two primary experimental setups:
+
+*   **Experiment 2 (Standard VGG)**: A baseline VGG-16 model trained on ImageNet-100.
+    *   Path: `__local__/experiment-2/000000/checkpoints/checkpoint_200.pth`
+*   **Experiment 4 (FlexNet)**: A VGG-16 model augmented with Flexible Neuron layers using `CHANNELWISE_MAXPOOL` joint mechanism.
+    *   Path: `__local__/experiment-4/000000/checkpoints/checkpoint_200.pth`
+
+## Training Instructions
+
+To train a model or reproduce the experiments, follow these steps:
+
+### 1. Configuration
+Modify `configurations.yml` to set your desired hyperparameters, model architecture, and dataset paths.
+
+### 2. Initialize Experiment
+Run the initialization script to generate the directory structure and specific configuration files for the experiment grid:
+```bash
+conda run -n flex-ffcv python step_1_init_experiments.py
+```
+This will create a new experiment folder in the location specified in `configurations.yml` (default is `__local__`).
+
+### 3. Run Training
+Execute the training script. By default, it will attempt to train/continue all runs within the latest experiment directory:
+```bash
+conda run -n flex-ffcv python step_2_train_or_continue.py
+```
+You can also specify a particular experiment or run:
+```bash
+conda run -n flex-ffcv python step_2_train_or_continue.py --experiment_name experiment-4 --run_name 000000
+```
+
 ## Acknowledgements
 
 This work was conducted at the [Kozlov Lab](https://www.kozlovlab.com/).
