@@ -13,8 +13,22 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 DATA_ROOT = Path(os.environ.get("FLEX_DATA_ROOT", PROJECT_ROOT / "data" / "brain_score_data"))
 
 os.environ['BRAINIO_HOME'] = str(DATA_ROOT / "brainio")
-os.environ['BRAINSCORE_HOME'] = str(DATA_ROOT / "brain_score")
-# os.environ['RESULTCACHING_HOME'] = str(DATA_ROOT / "result_caching") 
+# BRAINSCORE_HOME holds ONLY the derived `stimuli_on_screen/` cache, which
+# brainscore's screen._place_on_screen() rmtree's and regenerates on every
+# cache-miss. Concurrent HPC jobs sharing one BRAINSCORE_HOME therefore rmtree
+# each other's in-flight PNGs mid-read -> "[Errno 2] No such file: tex-*.png" and
+# a spurious 0.0 score (this is the SECOND half of the FreemanZiemba V1/V2-scores-0
+# bug; the first was the result_caching filepart race, fixed via per-job
+# RESULTCACHING_HOME in scripts/hpc/brain_score_checkpoint.sh). Give each SLURM job
+# a private, node-local framework home so no two jobs touch the same stimuli dir.
+# BRAINIO_HOME (the big downloaded assemblies/source stimuli) stays SHARED and
+# read-only, so this only re-does a few seconds of per-job stimulus resizing.
+_slurm_job = os.environ.get("SLURM_JOB_ID")
+if _slurm_job:
+    os.environ['BRAINSCORE_HOME'] = f"/tmp/brainscore_home_{_slurm_job}"
+else:
+    os.environ.setdefault('BRAINSCORE_HOME', str(DATA_ROOT / "brain_score"))
+# os.environ['RESULTCACHING_HOME'] = str(DATA_ROOT / "result_caching")  # per-job in the .sh
 
 print(f"Brain-Score Data Paths set to: {DATA_ROOT}")
 
@@ -25,8 +39,12 @@ print(f"RESULTCACHING_HOME: {os.environ.get('RESULTCACHING_HOME')}")
 
 from brainscore_vision import score
 from src.analysis.brain_score.wrapper import get_brain_model
-from src.modules.models.VGG import VGG
-from src.modules.layers.flex import Flex2D
+# NOTE: VGG / Flex2D are imported lazily inside main() (the local VGG/Exp2/Exp4
+# entrypoint). They live under `src.flex_neurons`, which is NOT present in every
+# checkout (e.g. the HPC tree ships `src.modules` instead). The checkpoint-scoring
+# path (process_layer / load_results, used by scripts/brain_score_checkpoint.py and
+# the HPC brain_score jobs) does not need them, so importing them at module level
+# would needlessly break brain-scoring on those trees with ModuleNotFoundError.
 
 def clear_model_hooks(model):
     """
@@ -164,8 +182,8 @@ def process_layer(model, layer, exp_name, config, results_data, output_file, ben
             if 'aggregation' in s.coords and 'error' in s.coords['aggregation'].values:
                 try:
                     error_val = float(s.sel(aggregation='error').item())
-                except:
-                    pass
+                except Exception:
+                    error_val = None
 
             # 3. Raw Folds (Cross-Validation Splits)
             folds = []
@@ -181,8 +199,8 @@ def process_layer(model, layer, exp_name, config, results_data, output_file, ben
                                 folds = val
                             else:
                                 folds = [val]
-                        except:
-                            pass
+                        except Exception:
+                            folds = []  # raw fold extraction failed; proceed with empty folds
             
             print(f"    Score: {center_val} (Folds: {len(folds)})")
 
@@ -200,6 +218,10 @@ def process_layer(model, layer, exp_name, config, results_data, output_file, ben
 
 def main():
     import argparse
+    # Imported here (not at module level) so the checkpoint-scoring path never
+    # requires `src.flex_neurons`, which is absent on some checkouts (see note above).
+    from src.flex_neurons.models.architectures.VGG import VGG
+    from src.flex_neurons.models.layers.flex import Flex2D
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment", type=str, choices=["Exp2", "Exp4"], help="Specific experiment to run (Exp2 or Exp4)")
     parser.add_argument("--layer", type=str, help="Specific layer to run (e.g., features.30)")
@@ -292,12 +314,9 @@ def main():
         # Filter by single layer argument if present
         if args.layer:
             if args.layer not in target_layers:
-                print(f"Warning: Requested layer {args.layer} not found in model.")
-                # We do NOT skip if not found? Or should we?
-                # Let's strictly run only if found or warn.
-                # If user asked for 'features.30' but it's not a Conv2d/Flex2D, we might skip.
-                # But let's check exact match.
-                pass 
+                # Layer not in detected conv/flex layers; warn but still attempt it
+                # (user may be explicitly targeting a non-conv layer for brain-score).
+                print(f"Warning: Requested layer {args.layer} not found among detected conv/pool layers.")
             # Overwrite target_layers with just this one
             target_layers = [args.layer]
         

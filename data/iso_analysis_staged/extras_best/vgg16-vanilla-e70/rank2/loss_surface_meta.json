@@ -1,0 +1,12 @@
+{
+  "eigenvalues": [
+    8.28789166967598,
+    3.556385854203616
+  ],
+  "grid_points": 51,
+  "range_scale": 10.0,
+  "probe_image": "n03388043/ILSVRC2012_val_00030720.JPEG",
+  "class_index": 562,
+  "rank": 2,
+  "selection": "max baseline/flex top-2 curvature ratio, baseline curvature >= pool median"
+}

@@ -86,7 +86,10 @@ class Flex2D(nn.Module):
             in_channels, out_channels, kernel_size, stride, padding
         )
         self.flex_pool = MaxPool2d(kernel_size, stride, padding)
-        self.bn_logits = nn.BatchNorm2d(self.out_channels)
+        # CHANNELWISE_MAXPOOL bypasses get_logits, so bn_logits would be a dead
+        # parameter — DDP rejects unused params unless find_unused_parameters=True.
+        if self.config.get("joint_mechanism", False) != "CHANNELWISE_MAXPOOL":
+            self.bn_logits = nn.BatchNorm2d(self.out_channels)
 
         # -------- Initialize monitored variables --------
         self.homogeneity = 0  # for monitoring the binariness of the mask later on
@@ -111,8 +114,12 @@ class Flex2D(nn.Module):
         assert hasattr(
             self, "out_dimensions"
         ), "out_dimensions must be specified before initializing threshold"
-        self.threshold = nn.Parameter(torch.randn(*self.out_dimensions)).to(self.device)
-        nn.init.kaiming_uniform_(self.threshold)
+        # threshold is consumed only by logits_mechanism == "THRESHOLD" via get_logits;
+        # CHANNELWISE_MAXPOOL never calls get_logits, so the parameter would be dead
+        # under DDP.
+        if self.config.get("joint_mechanism", False) != "CHANNELWISE_MAXPOOL":
+            self.threshold = nn.Parameter(torch.randn(*self.out_dimensions)).to(self.device)
+            nn.init.kaiming_uniform_(self.threshold)
 
     def forward(self, x):
         """

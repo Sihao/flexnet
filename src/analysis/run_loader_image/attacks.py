@@ -27,10 +27,10 @@ import torch, torchattacks, json
 from scipy.integrate import trapezoid
 import torchvision.utils as vutils
 from torch.utils.data import DataLoader
-from src.utils.device import select_device
+from src.flex_neurons.utils.device import select_device
 from src.analysis.run_loader import RunLoader
-from src.training.dataset_select import get_dataset_obj
-from src.training.dataset_subset import create_random_subset
+from src.flex_neurons.data.dataset_select import get_dataset_obj
+from src.flex_neurons.data.dataset_subset import create_random_subset
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from src.analysis.run_loader_image.intermediate_plot import IntermediateProcessViz
 

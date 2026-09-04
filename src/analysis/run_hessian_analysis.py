@@ -4,7 +4,10 @@ import torch.nn.functional as F
 import numpy as np
 import argparse
 import sys
-import psutil
+try:
+    import psutil  # optional: used only for RAM-usage diagnostics
+except ModuleNotFoundError:
+    psutil = None
 import os
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -24,8 +27,10 @@ def estimate_ram_usage(input_shape, batch_size, model):
     """
     Estimates the RAM usage for the Hessian-Vector Product computation.
     """
-    process = psutil.Process(os.getpid())
-    current_mem_mb = process.memory_info().rss / 1024 / 1024
+    if psutil is not None:
+        current_mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+    else:
+        current_mem_mb = 0.0
 
     # Estimate Gradient Size
     # Input gradients: B x C x H x W x 4 bytes (float32)
@@ -108,8 +113,11 @@ def lanczos_algorithm(model, criterion, inputs, targets, m_steps=50, device="cpu
 
         # Log progress and RAM every 10 steps
         if (i + 1) % 10 == 0:
-            ram = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
-            print(f"Step {i+1}/{m_steps} | RAM: {ram:.2f} MB")
+            if psutil is not None:
+                ram = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+                print(f"Step {i+1}/{m_steps} | RAM: {ram:.2f} MB")
+            else:
+                print(f"Step {i+1}/{m_steps}")
 
     return np.array(alphas), np.array(betas)
 
@@ -117,9 +125,16 @@ def lanczos_algorithm(model, criterion, inputs, targets, m_steps=50, device="cpu
 def analyze_hessian_input(
     exp_id, batch_size=1, num_batches=1, m_steps=50, device="cpu"
 ):
-    # Setup Output Directory
+    # Setup Output Directory. exp_id may be a digit experiment id OR a full
+    # run-folder path (used by the iso-accuracy trajectory analyses, which
+    # point at a restored single-checkpoint dir). Resolve consistently with
+    # get_model_for_experiment so output lands inside the run folder.
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_dir = Path(f"__local__/experiment-{exp_id}/000000/results/hessian_analysis")
+    if isinstance(exp_id, int) or (isinstance(exp_id, str) and str(exp_id).isdigit()):
+        exp_path = f"__local__/experiment-{exp_id}/000000"
+    else:
+        exp_path = str(exp_id)
+    base_dir = Path(exp_path) / "results" / "hessian_analysis"
     output_dir = base_dir / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -134,11 +149,26 @@ def analyze_hessian_input(
         from torchvision.datasets import ImageFolder
         from torch.utils.data import DataLoader
 
-        val_dir = "data/imagenet100/val.X"
+        # Full-ImageNet (1000-class) val, matching these models' label space.
+        # Prefer the node-local staged copy (IMAGENET_LOCAL_DIR, set by the HPC
+        # analyze job) so reads avoid the fs8 Lustre client; fall back to the
+        # fs8 path, then to the legacy local imagenet100 dir. Only a handful of
+        # images are read (num_batches small), so this is cheap regardless.
+        _img_root = os.environ.get(
+            "IMAGENET_LOCAL_DIR",
+            "/lustre/fs8/huds_lab/scratch/slu/Data/imagenet_full",
+        )
+        for _cand in (os.path.join(_img_root, "val"), "data/imagenet100/val.X"):
+            if os.path.isdir(_cand):
+                val_dir = _cand
+                break
+        else:
+            val_dir = os.path.join(_img_root, "val")
         if not os.path.exists(val_dir):
             print(f"[WARNING] {val_dir} not found. Using random tensors.")
             use_random = True
         else:
+            print(f"[INFO] Hessian input images from {val_dir}")
             use_random = False
 
     except Exception as e:

@@ -1,0 +1,57 @@
+# -------- system --------
+system:
+  experiment_dir:
+    server: "/rds/general/user/dy723/home/_flex_layer_runs_output"
+    local: "__local__"
+  imagenet_full_dir:
+    server: "/mnt/bronknas/Sihao/FlexNet/Datasets/imagenet_full"
+    local: "/mnt/bronknas/Sihao/FlexNet/Datasets/imagenet_full"
+  imagenet_beton_dir:
+    server: "/lustre/fs8/huds_lab/scratch/slu/Data/imagenet_ffcv"
+    local: "/lustre/fs8/huds_lab/scratch/slu/Data/imagenet_ffcv"
+
+# -------- meta --------
+network:
+  values: [VGG]
+  depends_on: null
+
+vgg_variant:
+  values: ["16"]
+  depends_on: null
+
+learning_rate:
+  values: [0.0001]
+  depends_on: null
+
+weight_decay:
+  values: [0.0001]
+  depends_on: null
+
+batch_size:
+  values: [32]
+  depends_on: null
+
+validate_every_n_batch:
+  values: [500]
+  depends_on: null
+
+dataset:
+  values: [imagenet]
+  depends_on: null
+
+optimizer:
+  values: [ADAMW]
+  depends_on: null
+
+scheduler:
+  values: [CosineAnnealingLR]
+  depends_on: null
+
+use_ffcv:
+  values: [false]
+  depends_on: { dataset: [imagenet] }
+
+# -------- vgg --------
+use_flex:
+  values: [false]
+  depends_on: null

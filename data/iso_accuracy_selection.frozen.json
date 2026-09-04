@@ -1,0 +1,149 @@
+{
+  "n": 12,
+  "pairs": [
+    {
+      "target_top1": 0.4,
+      "flex_epoch": 29,
+      "flex_top1": 0.3998,
+      "vanilla_epoch": 21,
+      "vanilla_top1": 0.40152,
+      "acc_gap": 0.00172,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_29.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_21.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.41813,
+      "flex_epoch": 30,
+      "flex_top1": 0.42214,
+      "vanilla_epoch": 18,
+      "vanilla_top1": 0.41886,
+      "acc_gap": 0.00328,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_30.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_18.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.43627,
+      "flex_epoch": 34,
+      "flex_top1": 0.44048,
+      "vanilla_epoch": 24,
+      "vanilla_top1": 0.43454,
+      "acc_gap": 0.00594,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_34.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_24.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.4544,
+      "flex_epoch": 36,
+      "flex_top1": 0.45376,
+      "vanilla_epoch": 44,
+      "vanilla_top1": 0.45464,
+      "acc_gap": 0.00088,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_36.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_44.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.47254,
+      "flex_epoch": 42,
+      "flex_top1": 0.47434,
+      "vanilla_epoch": 31,
+      "vanilla_top1": 0.47418,
+      "acc_gap": 0.00016,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_42.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_31.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.49067,
+      "flex_epoch": 49,
+      "flex_top1": 0.48944,
+      "vanilla_epoch": 33,
+      "vanilla_top1": 0.49416,
+      "acc_gap": 0.00472,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_49.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_33.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.50881,
+      "flex_epoch": 50,
+      "flex_top1": 0.5091,
+      "vanilla_epoch": 36,
+      "vanilla_top1": 0.50826,
+      "acc_gap": 0.00084,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_50.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_36.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.52694,
+      "flex_epoch": 62,
+      "flex_top1": 0.5278,
+      "vanilla_epoch": 47,
+      "vanilla_top1": 0.52774,
+      "acc_gap": 6e-05,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_62.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_47.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.54508,
+      "flex_epoch": 64,
+      "flex_top1": 0.54454,
+      "vanilla_epoch": 51,
+      "vanilla_top1": 0.54586,
+      "acc_gap": 0.00132,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_64.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_51.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.56321,
+      "flex_epoch": 69,
+      "flex_top1": 0.56234,
+      "vanilla_epoch": 60,
+      "vanilla_top1": 0.5624,
+      "acc_gap": 6e-05,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_69.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_60.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.58135,
+      "flex_epoch": 88,
+      "flex_top1": 0.58146,
+      "vanilla_epoch": 69,
+      "vanilla_top1": 0.58162,
+      "acc_gap": 0.00016,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_88.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_69.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    },
+    {
+      "target_top1": 0.59948,
+      "flex_epoch": 89,
+      "flex_top1": 0.59948,
+      "vanilla_epoch": 70,
+      "vanilla_top1": 0.6003,
+      "acc_gap": 0.00082,
+      "flex_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-flex-vgg16-imagenet-dense/checkpoints/checkpoint_89.pth",
+      "vanilla_ckpt": "/mnt/bronknas/Sihao/FlexNet/trajectory_checkpoints/experiment-vanilla-vgg16-imagenet-dense/checkpoints/checkpoint_70.pth",
+      "flex_ckpt_exists": true,
+      "vanilla_ckpt_exists": true
+    }
+  ]
+}

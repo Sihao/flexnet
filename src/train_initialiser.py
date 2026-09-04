@@ -27,10 +27,11 @@ def get_num_batches_per_log(dataset, batch_size, logs_per_epoch):
 
 
 def continue_training(
-    run_loader: RunLoader, epochs: int = 50, logs_per_epoch: int = 36
+    run_loader: RunLoader, target_epoch: int = 50, logs_per_epoch: int = 36
 ):
     """
-    dev mode: use a small subset of the dataset for faster debugging
+    Continue training up to target_epoch (absolute epoch number, not additional epochs).
+    If current_epoch >= target_epoch, training is skipped.
     """
     # ---------------- print init  ----------------
     print("Configurations")
@@ -85,7 +86,7 @@ def continue_training(
 
     # ---------------- setting up the weighted loss function ----------------
     main_training_loop(
-        epochs=epochs,
+        target_epoch=target_epoch,
         run_loader=run_loader,
         dataset_train=dataset_train,
         dataset_valid=dataset_valid,

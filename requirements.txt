@@ -20,7 +20,7 @@ tensorflow
 wandb
 pytorchcv
 SciencePlots
+# donware removed
 Tshrag-MetricDB
 pyyaml
 scipy
-brainscore-vision

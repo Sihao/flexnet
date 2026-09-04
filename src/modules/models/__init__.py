@@ -3,3 +3,4 @@ from src.modules.models.simple_flex import SimpleFlexNet
 from src.modules.models.simple_conv import SimpleConvNet
 from src.modules.models.flex_resnet import FlexResNet
 from src.modules.models.flex_unet import FlexUNet
+from src.modules.models.max_pref_resnet import MaxPrefResNet

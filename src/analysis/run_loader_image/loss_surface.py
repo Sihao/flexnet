@@ -10,10 +10,10 @@ import torch.nn
 from pathlib import Path
 from torch.utils.data import DataLoader
 from src.analysis.run_loader import RunLoader
-from src.training.dataset_select import get_dataset_obj
-from src._loss_surface.loss_landscapes import metrics
-from src._loss_surface.loss_landscapes import random_plane, linear_interpolation
-from src.utils.device import select_device
+from src.flex_neurons.data.dataset_select import get_dataset_obj
+from src.third_party.loss_landscapes.loss_landscapes import metrics
+from src.third_party.loss_landscapes.loss_landscapes import random_plane, linear_interpolation
+from src.flex_neurons.utils.device import select_device
 
 
 class PlotLossSurface:
@@ -55,4 +55,5 @@ class PlotLossSurface:
 
 
 if __name__ == "__main__":
-    pass
+    # Run via scripts/analyze.py loss_surface instead.
+    print("Use scripts/analyze.py loss_surface --checkpoint <ckpt> to run loss surface analysis.")

@@ -1,13 +1,14 @@
-#!/Users/dy323/micromamba/envs/flex/bin/python
+#!/usr/bin/env python3
 
 """
-- this script takes a runs folder where all the semi-trained models are stored and continues training them for x epochs
+- takes a runs folder with semi-trained models and continues training to the target epoch
 - example: python _run_2_continue_train.py    run_name = "000000"
 """
 
 from src.train_initialiser import continue_training
 from src.analysis.run_loader import RunLoader
 from src.utils.server import is_on_server
+from src.utils.device import setup_ddp, cleanup_ddp
 from pathlib import Path
 import argparse
 
@@ -32,12 +33,15 @@ class ContinueTrainSingleHandler:
         self.run_loader = run_loader
 
     def main(self):
-        continue_training(self.run_loader, epochs=200, logs_per_epoch=10)
+        target_epoch = self.run_loader.config.get("target_epoch", 500)
+        continue_training(self.run_loader, target_epoch=target_epoch, logs_per_epoch=10)
 
 
 if __name__ == "__main__":
+    # ---- [DDP init — no-op for single-GPU] ----
+    setup_ddp()
+
     # ---- [output of step 1] ----
-    import re
     import yaml
 
     with open("configurations.yml", "r") as f:
@@ -73,7 +77,9 @@ if __name__ == "__main__":
         )
         # ---- [just run the appointed one] ----
         actions = vars(args)
-        run_loader = RunLoader(base_folder / actions["run_name"])
+        # Training entrypoint: a fresh run has an empty checkpoints/ dir and must
+        # be allowed to cold-start (write + load an untrained epoch-0 checkpoint).
+        run_loader = RunLoader(base_folder / actions["run_name"], allow_cold_start=True)
         single_run_analyser = ContinueTrainSingleHandler(run_loader=run_loader)
         single_run_analyser.main()
 
@@ -83,6 +89,10 @@ if __name__ == "__main__":
         )
         # ---- [ run all sequentially ] ----
         for run_folder in (item for item in base_folder.iterdir() if item.is_dir()):
-            run_loader = RunLoader(run_folder)
+            # Training entrypoint: allow fresh runs to cold-start (see above).
+            run_loader = RunLoader(run_folder, allow_cold_start=True)
             single_run_analyser = ContinueTrainSingleHandler(run_loader=run_loader)
             single_run_analyser.main()
+
+    # ---- [DDP cleanup — no-op for single-GPU] ----
+    cleanup_ddp()

@@ -14,14 +14,28 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.analysis.run_loader import RunLoader
-from src.training.dataset_select import get_dataset_obj
-from src.utils.device import select_device
-from src.utils.normalization import (
-    Normalize,
-    denormalize_batch,
-    IMAGENET_MEAN,
-    IMAGENET_STD,
-)
+
+# These live under `src.flex_neurons.*` in the dev tree but `src.training.*` /
+# `src.utils.*` on the HPC checkout; try both so this file runs on either without a
+# `src.flex_neurons` ModuleNotFoundError (which silently killed the attacks stage).
+try:
+    from src.flex_neurons.data.dataset_select import get_dataset_obj
+    from src.flex_neurons.utils.device import select_device
+    from src.flex_neurons.utils.normalization import (
+        Normalize,
+        denormalize_batch,
+        IMAGENET_MEAN,
+        IMAGENET_STD,
+    )
+except ModuleNotFoundError:
+    from src.training.dataset_select import get_dataset_obj
+    from src.utils.device import select_device
+    from src.utils.normalization import (
+        Normalize,
+        denormalize_batch,
+        IMAGENET_MEAN,
+        IMAGENET_STD,
+    )
 
 
 DEFAULT_ATTACK_PARAMS = {
@@ -199,8 +213,11 @@ def run_attack_comparison(
     model.to(device)
 
     # 3. Load Dataset
+    # Full-ImageNet (1000-class) val — matches the label space of these
+    # full-ImageNet ResNet50s. max_samples (balanced across classes) keeps the
+    # adversarial sweep tractable; the caller sets it.
     print(f"Loading Validation Dataset...")
-    dataset = get_dataset_obj("imagenet100", "VAL")
+    dataset = get_dataset_obj("imagenet", "VAL")
 
     if viz_filter:
         print(f"Filtering dataset for string '{viz_filter}'...")
@@ -304,7 +321,10 @@ def run_attack_comparison(
     if "metadata" not in results:
         results["metadata"] = {}
     results["metadata"]["n_samples"] = len(dataset)
-    results["metadata"]["dataset_name"] = "imagenet100"
+    # NOTE: the dataset is the FULL ImageNet-1000 val (get_dataset_obj("imagenet","VAL")),
+    # subset balanced across all 1000 classes (max_samples/1000 per class) -- NOT the
+    # legacy 100-class set. Label kept honest; was previously hardcoded "imagenet100".
+    results["metadata"]["dataset_name"] = "imagenet1000_val_balanced"
     results["metadata"]["experiment_id"] = str(experiment_id)
     results["metadata"]["seed"] = seed
     results["metadata"]["max_samples"] = max_samples
@@ -420,7 +440,6 @@ def run_attack_comparison(
                         correct += predicted.eq(labels).sum().item()
                 except Exception as e:
                     print(f"Error in batch for {attack_name} eps={eps}: {e}")
-                    pass
 
             acc = correct / total if total > 0 else 0
             current_accuracies.append(acc)

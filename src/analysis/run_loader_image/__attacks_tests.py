@@ -7,7 +7,7 @@ take a torchattack attack and visualize the attacked images to check
 import torch
 from torch.utils.data import DataLoader
 from pathlib import Path
-from src.utils.device import select_device
+from src.flex_neurons.utils.device import select_device
 from src.analysis.run_loader_image.attacks import attack_batch, save_image_batch
 
 
@@ -39,9 +39,9 @@ def visual_check_attack_images(model, dataset, attack, save_dir):
 
 if __name__ == "__main__":
     import torchattacks
-    from src.training.dataset_select import get_dataset_obj
+    from src.flex_neurons.data.dataset_select import get_dataset_obj
     from src.analysis.run_loader import RunLoader
-    from src.training.dataset_subset import create_random_subset
+    from src.flex_neurons.data.dataset_subset import create_random_subset
 
     dataset = get_dataset_obj("cifar10", "TEST")
     dataset = create_random_subset(dataset, 100)

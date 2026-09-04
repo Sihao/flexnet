@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import argparse
+import math
 import sys
 import os
 import matplotlib.pyplot as plt
@@ -17,6 +18,24 @@ sys.path.append(
 
 from src.analysis.run_loader import RunLoader
 from cli_tool import get_model_for_experiment
+
+
+# Absolute-value threshold below which BOTH top-2 eigenvalues are treated as
+# a genuinely degenerate (numerically flat) loss surface, even after the
+# float64 precision fix in compute_top_eigenvectors / evaluate_loss_surface
+# below. Comfortably above float64 rounding noise, far below any real
+# curvature magnitude seen on a trained checkpoint (chainlink #401, ported
+# from the #396 fix in scripts/analyze_manuscript_extras_hpc.py).
+DEGENERATE_EIGENVALUE_ABS_TOL = 1e-8
+
+
+class DegenerateLossSurfaceError(RuntimeError):
+    """Raised by run_loss_surface_analysis when the top-2 eigenvalues are
+    still ~0 even in float64 -- a genuinely degenerate probe/checkpoint,
+    not the float32 softmax-saturation precision artifact the float64 cast
+    fixes. cli_tool.py's run_loss_surface command catches this through its
+    generic `except Exception`, so it surfaces as a reported error instead
+    of silently saving a flat surface."""
 
 
 def get_data_sample(val_dir="data/imagenet100/val.X", batch_size=1):
@@ -63,87 +82,131 @@ def hvp(loss, inputs, v):
     return hvp_result
 
 
-def power_iteration(
-    model, criterion, inputs, targets, num_bonds=0, steps=20, device="cpu"
-):
-    """
-    Find the dominant eigenvector of the Hessian using Power Iteration.
-    If num_bonds > 0 (deflation), we project out existing eigenvectors.
-    """
-    inputs = inputs.to(device)
-    targets = targets.to(device)
-    inputs.requires_grad = True
-
-    outputs = model(inputs)
-    loss = criterion(outputs, targets)
-
-    # Random initialization
-    v = torch.randn_like(inputs, device=device)
-    v = v / torch.norm(v)
-
-    eigenvalue = 0.0
-
-    for i in range(steps):
-        # Apply H * v
-        w = hvp(loss, inputs, v)
-
-        # Deflation if we want to find 2nd, 3rd eigenvectors
-        # Orthogonalize w against known eigenvectors (not implemented here, passed as arg?)
-        # For simple deflation, we assume we subtract lambda_i * v_i * (v_i^T v) from H
-        # But H is operator.
-        # Easier: explicitly project v to be orthogonal to previous vectors at each step.
-
-        # But wait, Power Iteration naturally finds dominant. To find 2nd, we need to remove component of 1st.
-        # Handled in the calling function via projection.
-        # Actually better to handle it here if we pass the known vectors.
-
-        eigenvalue = torch.dot(v.flatten(), w.flatten()).item()
-
-        v = w / torch.norm(w)
-
-    return eigenvalue, v
-
-
 def compute_top_eigenvectors(
     model, criterion, inputs, targets, k=2, steps=50, device="cpu"
 ):
+    # --- float64 precision fix (chainlink #401) ---
+    # A piecewise-linear network (e.g. VGG16 in eval) has input-Hessian
+    # curvature ONLY from the softmax cross-entropy term. Once softmax
+    # saturates on a confident-correct probe, that term underflows to an
+    # EXACT 0.0 in float32 (~88 nat floor), so the double-backprop Hvp
+    # below returns an exact-zero Hessian and the top-2 eigenvalues come
+    # back 0.00/0.00. float64 pushes the underflow floor to ~709 nats.
+    #
+    # Run the whole eigen-solve in float64, then restore the model and
+    # the returned eigenvectors to whatever dtype they had on entry, so
+    # a caller that already passed float64 (e.g.
+    # scripts/analyze_manuscript_extras_hpc.py, which double()s the
+    # model itself before calling in) sees a harmless no-op.
+    input_dtype = inputs.dtype
+    model_params = list(model.parameters())
+    model_dtype = model_params[0].dtype if model_params else None
+
     eigenvalues = []
     eigenvectors = []
 
-    inputs = inputs.to(device)
+    inputs = inputs.to(device).double()
     targets = targets.to(device)
     inputs.requires_grad = True
 
-    outputs = model(inputs)
-    loss = criterion(outputs, targets)
+    try:
+        model.double()
 
-    for i in range(k):
-        print(f"Computing Eigenvector {i+1}...")
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
 
-        # Init v
-        v = torch.randn_like(inputs, device=device)
-        v = v / torch.norm(v)
+        tol = 1e-6
 
-        for step in range(steps):
-            w = hvp(loss, inputs, v)
+        def deflate(vec, existing_vectors):
+            # Project out the component of `vec` along each vector already
+            # found, so later eigenvectors stay orthogonal to earlier ones.
+            for existing_v in existing_vectors:
+                proj = torch.dot(vec.flatten(), existing_v.flatten())
+                vec = vec - proj * existing_v
+            return vec
 
-            # Defalte: Project out components of previous eigenvectors from w
-            # w' = w - sum( (w . vj) * vj )
-            for existing_v in eigenvectors:
-                proj = torch.dot(w.flatten(), existing_v.flatten())
-                w = w - proj * existing_v
+        for i in range(k):
+            print(f"Computing Eigenvector {i+1}...")
 
-            eigenval = torch.dot(v.flatten(), w.flatten()).item()
-            v_norm = torch.norm(w)
+            # Init v, then deflate it against previously found eigenvectors
+            # *before* the first Hvp. Without this, power iteration for the
+            # 2nd+ eigenvector can collapse straight back onto the 1st.
+            v = torch.randn_like(inputs, device=device)
+            v = v / torch.norm(v)
+            v = deflate(v, eigenvectors)
+            v_norm = torch.norm(v)
+            if v_norm <= tol:
+                # The random draw landed (almost) entirely inside the
+                # already-found subspace. Redraw once and deflate again.
+                v = torch.randn_like(inputs, device=device)
+                v = v / torch.norm(v)
+                v = deflate(v, eigenvectors)
+                v_norm = torch.norm(v)
+                if v_norm <= tol:
+                    # Even the redraw collapsed into the already-found
+                    # subspace (e.g. k exceeds the input's true
+                    # dimensionality, so no independent direction is left
+                    # to initialize from). Report the same kind of
+                    # degenerate (~0) eigenpair the in-loop path reports
+                    # below, WITHOUT dividing by the near-zero v_norm.
+                    print(
+                        f"[WARNING] Eigenvector {i+1}: random init collapsed "
+                        f"into the existing subspace even after a redraw "
+                        f"(||v|| <= {tol}); reporting a degenerate (~0) "
+                        f"eigenvalue for this direction."
+                    )
+                    eigenvalues.append(0.0)
+                    eigenvectors.append(v.detach())
+                    print(f"  Eigenvalue {i+1}: 0.0000 (degenerate)")
+                    continue
+            v = v / v_norm
 
-            if v_norm > 1e-6:
+            degenerate = False
+
+            for step in range(steps):
+                w = hvp(loss, inputs, v)
+
+                # Deflate: Project out components of previous eigenvectors from w
+                # w' = w - sum( (w . vj) * vj )
+                w = deflate(w, eigenvectors)
+
+                v_norm = torch.norm(w)
+
+                if v_norm <= tol:
+                    # Curvature vanished along this direction: H*v deflated to
+                    # ~0, so there is nothing left to iterate on. Stop instead
+                    # of advancing v to a near-zero/un-normalisable direction.
+                    degenerate = True
+                    print(
+                        f"[WARNING] Eigenvector {i+1}: curvature vanished at "
+                        f"step {step+1} (||H v|| <= {tol}); reporting a "
+                        f"degenerate (~0) eigenvalue for this direction."
+                    )
+                    break
+
                 v = w / v_norm
-            else:
-                pass  # w is zero vector?
 
-        eigenvalues.append(eigenval)
-        eigenvectors.append(v.detach())  # Detach to stop graph growth
-        print(f"  Eigenvalue {i+1}: {eigenval:.4f}")
+            # Recompute the eigenvalue for the FINAL v so the reported
+            # (eigenvalue, eigenvector) pair is matched. (The old code paired
+            # the Rayleigh quotient of the pre-update v with the post-update
+            # v -- a mismatched pair.)
+            w_final = hvp(loss, inputs, v)
+            w_final = deflate(w_final, eigenvectors)
+            eigenval = torch.dot(v.flatten(), w_final.flatten()).item()
+
+            eigenvalues.append(eigenval)
+            eigenvectors.append(v.detach())  # Detach to stop graph growth
+            status = " (degenerate)" if degenerate else ""
+            print(f"  Eigenvalue {i+1}: {eigenval:.4f}{status}")
+    finally:
+        if model_dtype is not None:
+            model.to(model_dtype)
+
+    # Restore the eigenvectors to the dtype `inputs` had on entry, so a
+    # caller that passed float32 sees float32 back out (matching the
+    # pre-#401 return type), and a caller that already passed float64
+    # (the manuscript-extras script) sees float64 back out unchanged.
+    eigenvectors = [v.to(input_dtype) for v in eigenvectors]
 
     return eigenvalues, eigenvectors
 
@@ -156,47 +219,63 @@ def evaluate_loss_surface(
     v1,
     v2,
     grid_points=21,
-    range_scale=1.0,
+    range_scale=10.0,
     device="cpu",
 ):
     alphas = np.linspace(-range_scale, range_scale, grid_points)
     betas = np.linspace(-range_scale, range_scale, grid_points)
 
     loss_surface = np.zeros((grid_points, grid_points))
-    mesh_alpha, mesh_beta = np.meshgrid(alphas, betas)
+    # indexing="ij" makes mesh_alpha[i, j] == alphas[i] and
+    # mesh_beta[i, j] == betas[j], matching the fill loop below which
+    # writes loss_surface[i, j] for the i-th alpha and j-th beta.
+    mesh_alpha, mesh_beta = np.meshgrid(alphas, betas, indexing="ij")
 
-    inputs = inputs.to(device)
+    # --- float64 precision fix (chainlink #401); see
+    # compute_top_eigenvectors above for the full rationale. Restore the
+    # model to whatever dtype it had on entry; mesh_alpha/mesh_beta/
+    # loss_surface are plain numpy arrays and were always float64 in the
+    # original code, so no cast-back is needed for them.
+    model_params = list(model.parameters())
+    model_dtype = model_params[0].dtype if model_params else None
+
+    inputs = inputs.to(device).double()
     targets = targets.to(device)
-    v1 = v1.to(device)
-    v2 = v2.to(device)
+    v1 = v1.to(device).double()
+    v2 = v2.to(device).double()
 
     print(f"[INFO] Computing Loss Surface ({grid_points}x{grid_points})...")
 
-    # Pre-calculate base loss
-    with torch.no_grad():
-        base_out = model(inputs)
-        base_loss = criterion(base_out, targets).item()
-        print(f"Base Loss: {base_loss:.4f}")
+    try:
+        model.double()
 
-    with torch.no_grad():
-        for i, alpha in enumerate(alphas):
-            for j, beta in enumerate(betas):
-                perturbation = alpha * v1 + beta * v2
-                perturbed_input = inputs + perturbation
+        # Pre-calculate base loss
+        with torch.no_grad():
+            base_out = model(inputs)
+            base_loss = criterion(base_out, targets).item()
+            print(f"Base Loss: {base_loss:.4f}")
 
-                output = model(perturbed_input)
-                loss = criterion(output, targets)
-                loss_surface[i, j] = loss.item()
+        with torch.no_grad():
+            for i, alpha in enumerate(alphas):
+                for j, beta in enumerate(betas):
+                    perturbation = alpha * v1 + beta * v2
+                    perturbed_input = inputs + perturbation
+
+                    output = model(perturbed_input)
+                    loss = criterion(output, targets)
+                    loss_surface[i, j] = loss.item()
+    finally:
+        if model_dtype is not None:
+            model.to(model_dtype)
 
     return mesh_alpha, mesh_beta, loss_surface
 
 
-def run_loss_surface_analysis(exp_id, grid_points=21, range_scale=1.0, device="cpu", show_plot=False):
+def run_loss_surface_analysis(exp_id, grid_points=21, range_scale=10.0, device="cpu", show_plot=False):
     # Setup Output Directory
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     base_dir = Path(f"__local__/experiment-{exp_id}/000000/results/loss_surface")
     output_dir = base_dir / timestamp
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"[INFO] Loading Experiment {exp_id}...")
     model = get_model_for_experiment(exp_id)
@@ -216,8 +295,36 @@ def run_loss_surface_analysis(exp_id, grid_points=21, range_scale=1.0, device="c
         model, criterion, inputs, targets, k=2, steps=50, device=device
     )
 
+    # Guard (chainlink #401): the float64 cast inside compute_top_eigenvectors
+    # already fixes the float32 softmax-saturation underflow that used to
+    # report a spurious 0.00/0.00 top-2 pair. If both are STILL ~0 here, the
+    # probe/checkpoint is genuinely flat -- refuse to save a degenerate
+    # surface instead of writing one silently. A NaN/Inf top-2 eigenvalue is
+    # also degenerate: abs(nan) < tol is False, so it would otherwise slip
+    # past a flatness-only check and get written silently as a NaN surface.
+    top2 = eigenvalues[:2]
+    non_finite = [e for e in top2 if not math.isfinite(e)]
+    if non_finite:
+        raise DegenerateLossSurfaceError(
+            f"Experiment {exp_id}: top-2 eigenvalues {top2} contain a "
+            f"non-finite value {non_finite} -- refusing to save a "
+            "NaN/Inf-contaminated loss surface."
+        )
+    if all(abs(e) < DEGENERATE_EIGENVALUE_ABS_TOL for e in top2):
+        raise DegenerateLossSurfaceError(
+            f"Experiment {exp_id}: top-2 eigenvalues {top2} are "
+            f"both below {DEGENERATE_EIGENVALUE_ABS_TOL:.1e} even in "
+            "float64 -- this is a genuinely degenerate probe/checkpoint, "
+            "not a precision artifact. Refusing to save a flat loss surface."
+        )
+
     v1 = eigenvectors[0]
     v2 = eigenvectors[1]
+
+    # Output directory is created only after the degenerate guard passes
+    # (chainlink #401 fix 2), so a degenerate/non-finite run leaves no
+    # empty timestamped directory behind.
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save vectors/values
     np.save(output_dir / "eigenvalues.npy", np.array(eigenvalues))

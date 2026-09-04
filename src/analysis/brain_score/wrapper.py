@@ -5,7 +5,7 @@ from brainscore_vision.model_helpers.activations.pytorch import (
     load_preprocess_images,
 )
 from brainscore_vision.model_helpers.brain_transformation import ModelCommitment
-from src.modules.models.VGG import VGG
+from src.flex_neurons.models.architectures.VGG import VGG
 
 
 def get_brain_model(model_name, region_layer_map, model=None, ckpt_path=None, config=None, batch_size=64):

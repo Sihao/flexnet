@@ -1,5 +1,7 @@
 import argparse
+import subprocess
 import sys
+from pathlib import Path
 import data_io
 import utils
 import plotting
@@ -276,10 +278,39 @@ def parse_args():
     parser_comp_surf.add_argument("--exp2", required=True)
     parser_comp_surf.add_argument("--output", default=None)
 
+    # HPC sync subcommands
+    parser_hpc_sync_once = subparsers.add_parser(
+        "hpc_sync_once", help="Run one rsync pass from HPC and exit."
+    )
+    parser_hpc_sync_once.add_argument(
+        "extra", nargs=argparse.REMAINDER, help="Extra args forwarded to sync_daemon.py"
+    )
+
+    parser_hpc_sync_daemon = subparsers.add_parser(
+        "hpc_sync_daemon", help="Run the HPC sync daemon continuously."
+    )
+    parser_hpc_sync_daemon.add_argument(
+        "extra", nargs=argparse.REMAINDER, help="Extra args forwarded to sync_daemon.py"
+    )
+
+    parser_hpc_sync_follow = subparsers.add_parser(
+        "hpc_sync_follow", help="Tail the latest synced HPC log file."
+    )
+    parser_hpc_sync_follow.add_argument(
+        "extra", nargs=argparse.REMAINDER, help="Extra args forwarded to follow_log.py"
+    )
+
+    parser_hpc_sync_status = subparsers.add_parser(
+        "hpc_sync_status", help="Show current HPC sync state and directory summary."
+    )
+    parser_hpc_sync_status.add_argument(
+        "extra", nargs=argparse.REMAINDER, help="Extra args forwarded to sync_status.py"
+    )
+
     return parser.parse_args()
 
 
-def get_model_for_experiment(exp_id):
+def get_model_for_experiment(exp_id, recalibrate_bn=True):
     import torch
     from src.analysis.run_loader import RunLoader
 
@@ -300,7 +331,50 @@ def get_model_for_experiment(exp_id):
     model = loader.model.to(device)
     model.eval()
 
+    # MaxPrefResNet ships with collapsed BatchNorm running stats and scores ~chance
+    # until recalibrated (see lessons.md). Any eval/analysis loading it through this
+    # factory gets a BN-recalibrated model automatically. Gated on type, so no other
+    # architecture is touched.
+    if recalibrate_bn:
+        _maybe_recalibrate_maxpref_bn(model, loader.config, device)
+
     return model
+
+
+def _maybe_recalibrate_maxpref_bn(model, config, device):
+    """If ``model`` is a MaxPrefResNet, rebuild its BatchNorm running stats from a
+    validation subset (required for correct eval). Loud warning (never silent) if the
+    dataset can't be loaded, since an uncalibrated MaxPrefResNet scores ~chance."""
+    from src.modules.models.max_pref_resnet import MaxPrefResNet, recalibrate_batchnorm
+
+    if not isinstance(model, MaxPrefResNet):
+        return
+    try:
+        from torch.utils.data import DataLoader
+        from src.training.dataset_select import get_dataset_obj
+        from src.training.dataset_subset import create_random_subset
+
+        dataset_name = config.get("dataset", "imagenet")
+        num_images = int(config.get("bn_recalibrate_images", 5120))
+        batch_size = int(config.get("batch_size", 64))
+        subset = create_random_subset(
+            get_dataset_obj(dataset_name, "VAL"), num_samples=num_images, seed=0
+        )
+        loader = DataLoader(
+            subset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True
+        )
+        stats = recalibrate_batchnorm(model, loader, device=device)
+        model.eval()
+        print(
+            f"[maxpref] BN-recalibrated {stats['bn_layers']} layers over "
+            f"{stats['images']} {dataset_name} val images (eval-ready)"
+        )
+    except Exception as exc:  # noqa: BLE001 -- surface loudly, don't silently ship a broken model
+        print(
+            "[maxpref] WARNING: BatchNorm recalibration FAILED "
+            f"({type(exc).__name__}: {exc}). This MaxPrefResNet will score ~chance in "
+            "eval until BN stats are recalibrated (see scripts/eval_max_pref_bn_recalib.py)."
+        )
 
 
 def main():
@@ -508,8 +582,6 @@ def main():
 
     if args.command == "plot_spectral_slope":
         try:
-            from pathlib import Path
-
             # 1. Determine base search directory
             if isinstance(args.experiment, int) or (
                 isinstance(args.experiment, str) and args.experiment.isdigit()
@@ -588,7 +660,6 @@ def main():
             print(f"Plotting attack comparison for Experiment {args.experiment}...")
 
             # Smart loading logic
-            from pathlib import Path
             import json
 
             if isinstance(args.experiment, int) or (
@@ -786,7 +857,6 @@ def main():
 
     if args.command == "compare_attacks":
         try:
-            from pathlib import Path
             import json
 
             def get_latest_results(exp_id):
@@ -888,6 +958,25 @@ def main():
 
             traceback.print_exc()
         return
+
+    _sync_scripts = Path(__file__).parent / "scripts" / "sync"
+
+    if args.command in ("hpc_sync_once", "hpc_sync_daemon", "hpc_sync_follow", "hpc_sync_status"):
+        extra = list(args.extra)
+        if extra and extra[0] == "--":
+            extra = extra[1:]
+
+        if args.command == "hpc_sync_once":
+            script_args = [str(_sync_scripts / "sync_daemon.py"), "--once"] + extra
+        elif args.command == "hpc_sync_daemon":
+            script_args = [str(_sync_scripts / "sync_daemon.py")] + extra
+        elif args.command == "hpc_sync_follow":
+            script_args = [str(_sync_scripts / "follow_log.py")] + extra
+        else:
+            script_args = [str(_sync_scripts / "sync_status.py")] + extra
+
+        result = subprocess.run([sys.executable] + script_args)
+        sys.exit(result.returncode)
 
     # Logic for log-based plots
     log_path = f"__local__/experiment-{args.experiment}/000000/logs/metrics.jsonl"

@@ -1,30 +1,23 @@
-__debug__/**
-__local__/**
+# runtime experiment workspace created by step_1_init_experiments.py
 __local__/
-private/**
-.DS_Store
-data/*
-_dev**
-.vscode
-__pycache__
-.coverage
-runs/**
-init.sh
-_check*.py
-_utils/**
-results/**
-**.csv
-_andriy/**
-**.npy
-**.pkl
-**.json
-**.png
-wandb/**
-_manual_sync_wandb.py
 
+# python
+__pycache__/
+*.pyc
+.venv/
+.coverage
+
+# editor / os
+.DS_Store
+.vscode/
 .cursor/
-*.log
-*.pdf
-results/dump/
+.idea/
+
+# tooling state
 .chainlink/
 .claude/
+wandb/
+*.log
+
+# rendered figure outputs (reference copies live in figures/)
+/manuscript_styled_fig*

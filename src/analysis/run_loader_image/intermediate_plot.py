@@ -6,10 +6,10 @@ This script contains utility functions for visualizing tensors.
 
 from pathlib import Path
 import matplotlib.pyplot as plt
-from src.utils.server import is_on_server
+from src.flex_neurons.utils.server import is_on_server
 from src.analysis.run_loader import RunLoader
 from torch.utils.data import DataLoader
-from src.training.dataset_select import get_dataset_obj
+from src.flex_neurons.data.dataset_select import get_dataset_obj
 
 import torch
 

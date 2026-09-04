@@ -44,8 +44,6 @@ def plot_grad_flow(run_loader, save_path, set_y_lim=False, full_layer_name=False
     plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
     if full_layer_name:
         plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
-    else:
-        pass
     plt.xlim(left=0, right=len(ave_grads))
     if set_y_lim:
         plt.ylim(bottom=-0.001, top=0.04)  # zoom in on the lower gradient regions
@@ -67,7 +65,7 @@ def plot_grad_flow(run_loader, save_path, set_y_lim=False, full_layer_name=False
 
 
 if __name__ == "__main__":
-    from src.training.dataset_select import get_dataset_obj
+    from src.flex_neurons.data.dataset_select import get_dataset_obj
     import torch
 
     np.random.seed(42)

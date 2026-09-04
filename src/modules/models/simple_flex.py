@@ -17,6 +17,8 @@ class SimpleFlexNet(nn.Module):
         # ---- determine input dimensions and number of classes based on dataset ----
         if "cifar" in config.get("dataset", ""):
             self.in_dimensions, self.num_classes = (3, 32, 32), 10
+        elif config.get("dataset", "") == "imagenet":
+            self.in_dimensions, self.num_classes = (3, 224, 224), 1000
         elif "imagenet" in config.get("dataset", ""):
             self.in_dimensions, self.num_classes = (3, 224, 224), 100
         else:

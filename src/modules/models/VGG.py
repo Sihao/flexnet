@@ -30,6 +30,8 @@ class VGG(nn.Module):
         dataset = config.get("dataset", "")
         if "cifar" in dataset:
             self.in_dimensions, self.num_classes = (3, 32, 32), 10
+        elif dataset == "imagenet":
+            self.in_dimensions, self.num_classes = (3, 224, 224), 1000
         elif "imagenet" in dataset:
             self.in_dimensions, self.num_classes = (3, 224, 224), 100
         else:

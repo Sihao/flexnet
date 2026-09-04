@@ -6,9 +6,9 @@ import numpy as np
 import random
 from torch.utils.data import DataLoader, Subset
 
-from src.training.dataset_select import get_dataset_obj
-from src.utils.device import select_device
-from src.utils.spectral_utils import (
+from src.flex_neurons.data.dataset_select import get_dataset_obj
+from src.flex_neurons.utils.device import select_device
+from src.flex_neurons.utils.spectral_utils import (
     load_experiment_model,
     get_radial_profile,
     compute_slope,
@@ -45,9 +45,6 @@ def analyze_layer_spectral_slope(
     """
     if device is None:
         device = select_device()
-    else:
-        # ensure it's a string or torch device
-        pass
 
     print(
         f"Running Spectral Slope Analysis on Experiment {experiment_id}, Layer Index {layer_idx} (Device: {device})..."

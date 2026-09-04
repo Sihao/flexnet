@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.fft
@@ -8,12 +9,12 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm import tqdm
 from scipy import ndimage
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader, ConcatDataset, Subset
 
 from src.analysis.run_loader import RunLoader
-from src.training.dataset_select import get_dataset_obj
-from src.utils.device import select_device
-from src.modules.layers.flex import Flex2D
+from src.flex_neurons.data.dataset_select import get_dataset_obj
+from src.flex_neurons.utils.device import select_device
+from src.flex_neurons.models.layers.flex import Flex2D
 
 
 def get_layer_name(module, idx):
@@ -144,17 +145,23 @@ def run_frequency_analysis(experiment_id, batch_size=32, device=None):
         print("No Conv/Flex layers found to hook.")
         return
 
-    # 4. Load Datasets
-    print("Loading Datasets...")
+    # 4. Load Dataset
+    # Full-ImageNet (1000-class) val, randomly subsampled to a tractable,
+    # representative set for the per-layer frequency-magnitude average. The old
+    # imagenet100 train+val ConcatDataset is ~1.33M images on full ImageNet —
+    # far more than needed to estimate a stable spatial-frequency average.
+    print("Loading Dataset...")
     try:
-        # Train and Val
-        ds_train = get_dataset_obj("imagenet100", "TRAIN")
-        ds_val = get_dataset_obj("imagenet100", "VAL")
+        ds_val = get_dataset_obj("imagenet", "VAL")
 
-        # Combine? Or run sequentially?
-        # User said "training+val".
-        full_dataset = ConcatDataset([ds_train, ds_val])
-        print(f"Total images (Train+Val): {len(full_dataset)}")
+        n_freq = int(os.environ.get("FREQ_MAX_SAMPLES", "2000"))
+        if len(ds_val) > n_freq:
+            g = torch.Generator().manual_seed(0)
+            idx = torch.randperm(len(ds_val), generator=g)[:n_freq].tolist()
+            full_dataset = Subset(ds_val, sorted(idx))
+        else:
+            full_dataset = ds_val
+        print(f"Frequency-analysis images: {len(full_dataset)} (of {len(ds_val)} val)")
 
         loader = DataLoader(
             full_dataset, batch_size=batch_size, shuffle=False, num_workers=4

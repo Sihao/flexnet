@@ -3,15 +3,15 @@ import numpy as np
 from pathlib import Path
 import warnings, pickle, json, torch
 import matplotlib.pyplot as plt
-from src._pyhessian.pyhessian import hessian  # Hessian computation
-from src._pyhessian.density_plot import get_esd_plot
-from src.training.dataset_select import get_dataset_obj
-from src.training.dataset_subset import create_balanced_subset, create_random_subset
+from src.third_party.pyhessian.pyhessian import hessian  # Hessian computation
+from src.third_party.pyhessian.density_plot import get_esd_plot
+from src.flex_neurons.data.dataset_select import get_dataset_obj
+from src.flex_neurons.data.dataset_subset import create_balanced_subset, create_random_subset
 from copy import deepcopy
 
 from torch.utils.data import DataLoader
 from src.analysis.run_loader import RunLoader
-from src.utils.device import select_device
+from src.flex_neurons.utils.device import select_device
 
 warnings.filterwarnings("ignore")
 

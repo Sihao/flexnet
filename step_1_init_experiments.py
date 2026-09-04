@@ -1,4 +1,4 @@
-#!/Users/dy323/micromamba/envs/flex/bin/python
+#!/usr/bin/env python3
 """
 the main script for grid search initialiser
 

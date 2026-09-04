@@ -204,16 +204,20 @@ class FlexResNet(nn.Module):
         self.__name__ = "FlexResNet"
 
         # Determine dimensions
-        if "cifar" in config.get("dataset", ""):
+        dataset = config.get("dataset", "")
+        if "cifar" in dataset:
             self.in_dimensions, self.num_classes = (3, 32, 32), 10
             # CIFAR ResNet typically starts with 16 channels, 6n+2 layers
             # e.g., depth 32 -> n=5
             self.base_channel = 16
-        elif "imagenet" in config.get("dataset", ""):
+        elif dataset == "imagenet":
+            self.in_dimensions, self.num_classes = (3, 224, 224), 1000
+            self.base_channel = 64  # Standard ResNet uses 64
+        elif "imagenet" in dataset:
             self.in_dimensions, self.num_classes = (3, 224, 224), 100  # ImageNet100
             self.base_channel = 64  # Standard ResNet uses 64
         else:
-            raise ValueError(f"Dataset not supported: {config.get('dataset')}")
+            raise ValueError(f"Dataset not supported: {dataset}")
 
         self.tracer = DimensionTracer(self.in_dimensions)
 

@@ -1,0 +1,34 @@
+{
+  "vgg16-flex-e89": {
+    "features.10": {
+      "FreemanZiemba2013.V1.public-pls": 0.1607450401119402,
+      "FreemanZiemba2013.V2.public-pls": 0.21160853147834588,
+      "MajajHong2015.public.IT-pls": 0.28454344162694284,
+      "MajajHong2015.public.V4-pls": 0.5017334719698873
+    },
+    "features.20": {
+      "FreemanZiemba2013.V1.public-pls": 0.2001158360874957,
+      "FreemanZiemba2013.V2.public-pls": 0.2621227912826149,
+      "MajajHong2015.public.IT-pls": 0.3814527799686866,
+      "MajajHong2015.public.V4-pls": 0.519539023811835
+    },
+    "features.3": {
+      "FreemanZiemba2013.V1.public-pls": 0.09934104480986214,
+      "FreemanZiemba2013.V2.public-pls": 0.023165374422343694,
+      "MajajHong2015.public.IT-pls": 0.20006481803963666,
+      "MajajHong2015.public.V4-pls": 0.33142651884422414
+    },
+    "features.30": {
+      "FreemanZiemba2013.V1.public-pls": 0.17269086520560015,
+      "FreemanZiemba2013.V2.public-pls": 0.3012715355527794,
+      "MajajHong2015.public.IT-pls": 0.47255197387729403,
+      "MajajHong2015.public.V4-pls": 0.4913238758438026
+    },
+    "features.40": {
+      "FreemanZiemba2013.V1.public-pls": 0.1197902999509374,
+      "FreemanZiemba2013.V2.public-pls": 0.23629367163458723,
+      "MajajHong2015.public.IT-pls": 0.5210436955156558,
+      "MajajHong2015.public.V4-pls": 0.3788825860371661
+    }
+  }
+}

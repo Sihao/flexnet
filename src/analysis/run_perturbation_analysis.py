@@ -7,14 +7,26 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 
 from src.analysis.run_loader import RunLoader
-from src.training.dataset_imagenet import ImageNetRDataset
-from src.utils.device import select_device
-from src.utils.normalization import (
-    Normalize,
-    denormalize_batch,
-    IMAGENET_MEAN,
-    IMAGENET_STD,
-)
+
+# `src.flex_neurons.*` in the dev tree; `src.training.*` / `src.utils.*` on HPC.
+try:
+    from src.flex_neurons.data.dataset_imagenet import ImageNetRDataset
+    from src.flex_neurons.utils.device import select_device
+    from src.flex_neurons.utils.normalization import (
+        Normalize,
+        denormalize_batch,
+        IMAGENET_MEAN,
+        IMAGENET_STD,
+    )
+except ModuleNotFoundError:
+    from src.training.dataset_imagenet import ImageNetRDataset
+    from src.utils.device import select_device
+    from src.utils.normalization import (
+        Normalize,
+        denormalize_batch,
+        IMAGENET_MEAN,
+        IMAGENET_STD,
+    )
 
 
 def run_perturbation_analysis(
@@ -62,36 +74,63 @@ def run_perturbation_analysis(
     model.eval()
     model.to(device)
 
-    # 3. Locate Labels.json (for IN-100 filtering)
-    # Logic adapted from src/training/dataset_select.py
-    import yaml
+    # 3. Build the class-key -> target mapping (Labels.json).
+    # ImageNetRDataset assigns each image the ENUMERATION INDEX of its WNID within
+    # this Labels.json (dict order). For the full-ImageNet-1000 ResNet50s the file
+    # must therefore list ALL 1000 WNIDs in the SAME sorted order torchvision
+    # ImageFolder used for train/val (get_dataset_obj -> ImageFolder(val), which
+    # sorts class-folder names). That makes each corruption image's target equal the
+    # model's 1000-way output index, with NO imagenet100 overlap subsetting -- every
+    # ImageNet-C class is in-vocabulary. Legacy 100-class behaviour:
+    # PERTURB_LABEL_SPACE=in100. Override the file entirely with PERTURB_LABELS_JSON.
+    import yaml, json as _json, tempfile
 
     root_path = Path(__file__).parents[2]
-    config_path = root_path / "configurations.yml"
+    label_space = os.environ.get("PERTURB_LABEL_SPACE", "imagenet1000")
 
-    try:
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-
-        # Check system/server logic
-        from src.utils.server import is_on_server
-
-        if is_on_server():
-            in100_path = Path(config["system"]["imagenet_dir"]["server"])
-        else:
-            in100_path = Path(config["system"]["imagenet_dir"]["local"])
-
-        labels_file = in100_path / "Labels.json"
-
-        if not labels_file.exists():
-            print(f"Error: Labels.json not found at {labels_file}")
+    if os.environ.get("PERTURB_LABELS_JSON"):
+        labels_file = Path(os.environ["PERTURB_LABELS_JSON"])
+        print(f"Using override Labels.json: {labels_file}")
+    elif label_space == "imagenet1000":
+        # Fix the ordering from an imagenet val dir with 1000 WNID subfolders.
+        cand = []
+        if os.environ.get("IMAGENET_LOCAL_DIR"):
+            cand.append(Path(os.environ["IMAGENET_LOCAL_DIR"]) / "val")
+        cand.append(Path("/lustre/fs8/huds_lab/scratch/slu/Data/imagenet_full/val"))
+        val_dir = next((p for p in cand if p.is_dir()), None)
+        if val_dir is None:
+            print("Error: cannot locate an imagenet-1000 val dir (1000 WNID folders) "
+                  "to build the WNID->index mapping; set IMAGENET_LOCAL_DIR.")
             return
+        wnids = sorted(d.name for d in val_dir.iterdir() if d.is_dir())
+        if len(wnids) != 1000:
+            print(f"Warning: expected 1000 WNID folders in {val_dir}, found {len(wnids)}")
+        mapping = {w: i for i, w in enumerate(wnids)}  # sorted-WNID -> ImageFolder index
+        labels_file = Path(tempfile.gettempdir()) / "imagenet1000_wnid_labels.json"
+        labels_file.write_text(_json.dumps(mapping))
+        print(f"Built imagenet-1000 sorted-WNID Labels.json ({len(mapping)} classes) "
+              f"from {val_dir} -> {labels_file}")
+    else:
+        # Legacy IN-100 (100-class overlap) label space.
+        config_path = root_path / "configs" / "configurations.yml"
+        try:
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+            try:
+                from src.flex_neurons.utils.server import is_on_server
+            except ModuleNotFoundError:
+                from src.utils.server import is_on_server
 
-        print(f"Using Labels.json from: {labels_file}")
-
-    except Exception as e:
-        print(f"Error reading configuration to find Labels.json: {e}")
-        return
+            key = "server" if is_on_server() else "local"
+            in100_path = Path(config["system"]["imagenet_dir"][key])
+            labels_file = in100_path / "Labels.json"
+            if not labels_file.exists():
+                print(f"Error: Labels.json not found at {labels_file}")
+                return
+            print(f"Using IN-100 Labels.json from: {labels_file}")
+        except Exception as e:
+            print(f"Error reading configuration to find Labels.json: {e}")
+            return
 
     # 4. Perturbation Loop
     imagenet_c_path = Path(imagenet_c_path)
@@ -240,5 +279,4 @@ def run_perturbation_analysis(
 
 
 if __name__ == "__main__":
-    # Test run
-    pass
+    print("Run via: python scripts/analyze.py adversarial --checkpoint <ckpt>")
