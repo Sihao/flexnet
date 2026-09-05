@@ -30,6 +30,20 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+# House typography: Helvetica for every glyph, math text included. On systems
+# without a licensed Helvetica the stack resolves to URW Nimbus Sans, the
+# metrically identical Helvetica clone shipped with Ghostscript/TeX.
+plt.rcParams.update({
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Helvetica", "Helvetica Neue", "Arial",
+                        "Nimbus Sans", "Liberation Sans"],
+    "mathtext.fontset": "custom",
+    "mathtext.rm": "sans",
+    "mathtext.it": "sans:italic",
+    "mathtext.bf": "sans:bold",
+    "mathtext.cal": "sans",
+})
 from matplotlib.colors import LightSource
 from matplotlib.ticker import FuncFormatter
 from PIL import Image
@@ -107,7 +121,9 @@ def fig1(tag, n_classes=1000):
     from matplotlib.colors import LinearSegmentedColormap
     from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch
 
-    fig = plt.figure(figsize=(6.7, 3.5))
+    # canvas drawn in 6.7x3.5 design units, scaled uniformly to the common
+    # 7.4-inch figure width shared by all manuscript figures
+    fig = plt.figure(figsize=(7.4, 3.5 * 7.4 / 6.7))
     ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, 6.7); ax.set_ylim(0, 3.5)
     ax.set_aspect("equal"); ax.axis("off")
 
@@ -178,7 +194,7 @@ def fig1(tag, n_classes=1000):
         ax.scatter(xx, yy, s=21, c=colors.reshape(-1, 4), edgecolors="black",
                    linewidths=0.45, zorder=2)
         ax.text(x0 + 4 * pitch, 0.335, label, fontsize=9, ha="center", va="top")
-    mt = dict(fontsize=9, ha="center", math_fontfamily="cm")
+    mt = dict(fontsize=9, ha="center")
     ax.text(0.45, 1.29, r"$f_{conv}(i,j,k)$", **mt)
     ax.text(1.37, 1.29, r"$f_{max}(i,j,k)$", **mt)
     ax.text(2.29, 1.44, r"$max(f_{conv}(i,j,k),$", **mt)
@@ -189,16 +205,19 @@ def fig1(tag, n_classes=1000):
     C_IN, C_MP, C_FC = ("#ccd3e8", "#8e99b8"), ("#f9d8ec", "#d193bd"), ("#d8edcf", "#99c489")
     cx, lx = 3.92, 5.52
     h, gap, aslot = 0.10, 0.02, 0.105
+    # conv-row sizes are the PRE-pool activation shapes: Flex2D runs at
+    # stride 1 (flex.py), so spatial size drops only at each block's
+    # MaxPool2d(2,2) -- verified against the e89 routing-stats p_elem shapes
     blocks = [("input", [("224x224x3", 2.18, ("#d8d8d8", "#999999"))], "Input"),
-              ("b1", [("112x112x64", 1.80, C_IN)] * 2 + [("MaxPool", 1.90, C_MP)],
+              ("b1", [("224x224x64", 1.80, C_IN)] * 2 + [("MaxPool", 1.90, C_MP)],
                "Flex2D\nBlock 1"),
-              ("b2", [("56x56x128", 1.55, C_IN)] * 2 + [("MaxPool", 1.65, C_MP)],
+              ("b2", [("112x112x128", 1.55, C_IN)] * 2 + [("MaxPool", 1.65, C_MP)],
                "Flex2D\nBlock 2"),
-              ("b3", [("28x28x256", 1.35, C_IN)] * 3 + [("MaxPool", 1.45, C_MP)],
+              ("b3", [("56x56x256", 1.35, C_IN)] * 3 + [("MaxPool", 1.45, C_MP)],
                "Flex2D\nBlock 3"),
-              ("b4", [("14x14x512", 1.12, C_IN)] * 3 + [("MaxPool", 1.22, C_MP)],
+              ("b4", [("28x28x512", 1.12, C_IN)] * 3 + [("MaxPool", 1.22, C_MP)],
                "Flex2D\nBlock 4"),
-              ("b5", [("7x7x512", 0.92, C_IN)] * 3 + [("MaxPool", 1.02, C_MP)],
+              ("b5", [("14x14x512", 0.92, C_IN)] * 3 + [("MaxPool", 1.02, C_MP)],
                "Flex2D\nBlock 5"),
               ("fc", [("1x4096", 1.00, C_FC)] * 2, "Fully connected\nblock"),
               ("out", [(f"1x{n_classes}", 1.00, C_FC)], "Output")]
@@ -365,7 +384,7 @@ def fig2(tag, vanilla_metrics=None, flex_metrics=None):
     vanilla_metrics = vanilla_metrics or RP / "vanilla_metrics.jsonl"
     flex_metrics = flex_metrics or RP / "flex_metrics.jsonl"
 
-    fig = plt.figure(figsize=(7.2, 4.6))
+    fig = plt.figure(figsize=(7.4, 4.6))
     # A/B and C/D get separate gridspecs: C/D's top row carries an xlabel
     # ("Spatial Frequency"), so its row gap must be wider than A/B's
     gsT = fig.add_gridspec(2, 2, left=0.075, right=0.500, top=0.90, bottom=0.445,
@@ -564,7 +583,7 @@ def fig3(tag):
     else:
         ylim, yticks = (0, gmax * 1.06), [0.0, 0.2, 0.4, 0.6]
 
-    fig = plt.figure(figsize=(7.2, 5.6))
+    fig = plt.figure(figsize=(7.4, 5.6))
     # Panel A = adversarial attacks (headline result), Panel B = corruptions.
     gsA = fig.add_gridspec(1, 4, left=0.09, right=0.985, top=0.93, bottom=0.76,
                            wspace=0.18)
@@ -686,8 +705,12 @@ def fig4(tag, seed=0):
     null = np.array([wasserstein_distance(*(lambda P: (P[:nf], P[nf:]))(rng.permutation(pooled)))
                      for _ in range(1000)])
     pval = float((null >= wd).mean())
+    # A permutation test cannot resolve p below 1/n_permutations: when no null
+    # draw reaches the observed distance, report the bound, not "p = 0".
+    p_label = (f"$p < {1.0 / len(null):g}$" if pval < 1.0 / len(null)
+               else f"$p = {pval:.4f}$")
 
-    fig = plt.figure(figsize=(7.2, 4.35))
+    fig = plt.figure(figsize=(7.4, 4.35))
     gsL = fig.add_gridspec(2, 1, left=0.095, right=0.355, top=0.90, bottom=0.115,
                            hspace=0.58)
     axA = fig.add_subplot(gsL[0, 0]); axB = fig.add_subplot(gsL[1, 0])
@@ -714,7 +737,7 @@ def fig4(tag, seed=0):
     axB.hist(null, bins=15, alpha=0.7, color=BASE, edgecolor="white",
              linewidth=0.5, label="Null Distribution")
     axB.axvline(wd, color=FLEX, linestyle="--", linewidth=2.5,
-                label=f"Observed ($p={pval:.4f}$)")
+                label=f"Observed ({p_label})")
     axB.set_xlabel("Wasserstein Distance", fontsize=8)
     axB.set_ylabel("Count", fontsize=8)
     axB.legend(frameon=False, fontsize=6.5)
