@@ -43,6 +43,10 @@ plt.rcParams.update({
     "mathtext.it": "sans:italic",
     "mathtext.bf": "sans:bold",
     "mathtext.cal": "sans",
+    # PDF/SVG keep text and lines vector; this sets the sampling resolution
+    # of embedded raster content (feature maps, loss surfaces, schematic).
+    # Without it the vector backends resample images at 100 ppi.
+    "savefig.dpi": 600,
 })
 from matplotlib.colors import LightSource
 from matplotlib.ticker import FuncFormatter
@@ -1105,7 +1109,7 @@ def fig6(tag):
     rng = np.random.default_rng(0)
     for i, ch in enumerate(chans):
         jx = i + rng.uniform(-0.27, 0.27, ch.size)
-        axC.plot(jx, ch, ".", color=BASE, ms=1.6, alpha=0.30, rasterized=True)
+        axC.plot(jx, ch, ".", color=BASE, ms=1.6, alpha=0.30)
         axC.plot([i - 0.33, i + 0.33], [float(np.median(ch))] * 2, color=FLEX,
                  lw=1.8, solid_capstyle="butt", zorder=3)
     style_axis(axC)
