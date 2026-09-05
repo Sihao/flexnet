@@ -848,8 +848,10 @@ def vgg_layer_id(layer_key):
 def fig5(tag, arch="resnet50", flex_bs=None, vanilla_bs=None):
     """Draft-exact Figure 5 (neural predictivity). Layout read off main.pdf
     p.16: A = brain schematic (vector art lifted from the compiled draft --
-    data-independent), B = per-region score with the layer assignment made
-    separately per network (per-region best scored layer), C = 2x2 per-layer
+    data-independent), B = per-region score with a hierarchical layer
+    assignment made separately per network (IT = best layer overall, then
+    V4/V2/V1 each restricted to layers below the previous
+    assignment), C = 2x2 per-layer
     grid (V1,V2 / V4,IT) with rotated "Layer ID" ticks, one global ylim
     (0, 1.1*max) on every panel, x10^-1 offset notation, right-column y tick
     labels hidden, frameless legends in B and in the V2 panel.
@@ -901,17 +903,27 @@ def fig5(tag, arch="resnet50", flex_bs=None, vanilla_bs=None):
     ymax = 1.1 * max(allvals)
     yticks = np.arange(0, ymax + 1e-9, 0.2)
 
-    # B: layer assignment separate per network = per-region best scored layer
+    # B: hierarchical layer assignment, separate per network. IT takes the
+    # best-scoring layer over the full sweep; V4 is then chosen only among
+    # layers strictly BELOW the IT layer, V2 below the V4 layer, and V1 below
+    # the V2 layer, so the assigned model hierarchy mirrors the biological
+    # V1 -> V2 -> V4 -> IT progression.
     def best(model):
         out = {}
-        for r in BENCH:
-            vals = {L: scores[model][L][r] for L in layers
-                    if not np.isnan(scores[model][L][r])}
+        upper = len(layers)  # exclusive index bound; layers are shallow->deep
+        prev = None
+        for r in ("IT", "V4", "V2", "V1"):
+            vals = {i: scores[model][layers[i]][r] for i in range(upper)
+                    if not np.isnan(scores[model][layers[i]][r])}
             if not vals:
-                raise ValueError(f"Fig5 panel B: no usable {r} score for "
-                                 f"{model} in any scored layer")
-            L = max(vals, key=vals.get)
-            out[r] = (vals[L], L)
+                raise ValueError(
+                    f"Fig5 panel B: no usable {r} score for {model} in any "
+                    f"layer below the {prev} assignment "
+                    f"(layers[:{upper}]); the hierarchical constraint "
+                    f"cannot be satisfied with this layer sweep")
+            i = max(vals, key=vals.get)
+            out[r] = (vals[i], layers[i])
+            upper, prev = i, r
         return out
     bestv, bestf = best("van"), best("flx")
 
