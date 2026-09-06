@@ -1022,9 +1022,10 @@ def fig6(tag):
       C = channel commitment strip (one dot per filter: channel-mean P(conv))
     Reading order = aggregate -> category -> identity: A unit-level mean,
     B unit-level determinism split, C per-filter localisation.
-    House style follows figs 2-5: orange = conv path, navy = max-pool path
-    (the plot_flex_conv_ratio convention), x10^-1 y offsets, rotated
-    "Layer ID" ticks, frameless legends, top/right spines off.
+    Path colours follow the Fig 1 schematic: navy/blue = convolution path,
+    yellow = max-pooling path. Axis grammar follows figs 2-5: x10^-1 y
+    offsets, rotated "Layer ID" ticks, frameless legends, top/right
+    spines off.
     """
     import re
 
@@ -1087,10 +1088,10 @@ def fig6(tag):
 
     # A -- path shares across depth
     axA = fig.add_subplot(gs[0, 0])
-    axA.bar(xs, conv, width=0.72, color=FLEX, label="Conv path")
-    axA.bar(xs, 1.0 - conv, bottom=conv, width=0.72, color=BASE,
+    axA.bar(xs, conv, width=0.72, color=BASE, label="Conv path")
+    axA.bar(xs, 1.0 - conv, bottom=conv, width=0.72, color=FLEX,
             label="Max-pool path")
-    axA.errorbar(xs, conv, yerr=imstd, fmt="none", ecolor="white",
+    axA.errorbar(xs, conv, yerr=imstd, fmt="none", ecolor="#9a9a9a",
                  elinewidth=0.9, capsize=1.5, capthick=0.9)
     axA.axhline(0.5, ls="--", lw=0.8, color="#9a9a9a")
     style_axis(axA)
@@ -1105,9 +1106,9 @@ def fig6(tag):
 
     # B -- routing determinism (unit level, decomposes A's mean share)
     axB = fig.add_subplot(gs[0, 1])
-    axB.plot(xs, lock_max, "-o", color=BASE, ms=4, lw=1.4,
+    axB.plot(xs, lock_max, "-o", color=FLEX, ms=4, lw=1.4,
              label="Always max-pool")
-    axB.plot(xs, lock_conv, "--s", color=FLEX, ms=4, lw=1.4,
+    axB.plot(xs, lock_conv, "--s", color=BASE, ms=4, lw=1.4,
              label="Always conv")
     axB.plot(xs, switching, ":^", color="#7a7a7a", ms=4, lw=1.4,
              label="Input-dependent")
