@@ -8,7 +8,8 @@ House style (read off the compiled manuscript):
   baseline/vanilla = solid navy line + filled circles ; flex = dashed orange
   line + filled squares ; axes use x10^-1 offset scaling ; chip labels
   ("Baseline"/"Flex") ; plasma colormap for feature maps (2E), shaded surfaces
-  for loss landscapes (4C) ; 3x5 alphabetical corruption grid (3A) ;
+  for loss landscapes (4C) ; 3x5 category-ordered corruption grid (3B:
+  noise, blur, weather, digital) ;
   1x4 attack row (3B) ; 2x2 per-layer grid (5C) ; routing statistics (6).
 
 Data: every input is read from a staging directory (default
@@ -73,10 +74,12 @@ LAYER_DEPTH = np.array([0, 2, 6, 8, 12, 13, 15])
 VGG_LAYER_ID = {0: "1.1", 3: "1.2", 7: "2.1", 10: "2.2", 14: "3.1", 17: "3.2",
                 20: "3.3", 24: "4.1", 27: "4.2", 30: "4.3", 34: "5.1",
                 37: "5.2", 40: "5.3"}
-CORR_ALPHA = ["brightness", "contrast", "defocus_blur", "elastic_transform", "fog",
-              "frost", "gaussian_noise", "glass_blur", "impulse_noise",
-              "jpeg_compression", "motion_blur", "pixelate", "shot_noise", "snow",
-              "zoom_blur"]
+# ImageNet-C category order: noise, blur, weather, digital artifacts
+# (Hendrycks & Dietterich 2019); fills the 3x5 grid row-major.
+CORR_ORDER = ["gaussian_noise", "shot_noise", "impulse_noise",
+              "defocus_blur", "glass_blur", "motion_blur", "zoom_blur",
+              "snow", "frost", "fog", "brightness",
+              "contrast", "elastic_transform", "pixelate", "jpeg_compression"]
 
 
 # ------------------------------------------------------------------ style helpers
@@ -600,7 +603,7 @@ def fig3(tag):
         ax.tick_params(labelsize=7, length=2.5)
 
     axB0 = None
-    for i, c in enumerate(CORR_ALPHA):
+    for i, c in enumerate(CORR_ORDER):
         r, k = divmod(i, 5)
         ax = fig.add_subplot(gsB[r, k], sharey=axB0)
         if axB0 is None:
